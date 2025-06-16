@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+langchain
+langchain-core
+langchain-community
+langchain-huggingface
+chromadb
+sentence-transformers
+transformers
+torch
+camelot-py[cv] 
+pandas
+sqlalchemy
+python-dotenv
+python-multipart
+
