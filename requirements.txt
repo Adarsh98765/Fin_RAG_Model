@@ -4,6 +4,7 @@ langchain
 langchain-core
 langchain-community
 langchain-huggingface
+langchain_openai
 chromadb
 sentence-transformers
 transformers
@@ -13,4 +14,3 @@ pandas
 sqlalchemy
 python-dotenv
 python-multipart
-

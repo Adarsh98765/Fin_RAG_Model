@@ -13,3 +13,10 @@ class FileRecord(Base):
 
     id = Column(String, primary_key=True)       # file hash (document_id)
     filename = Column(String)                   # original filename
+
+# --- Model 2 Table ---
+class SummaryRecord(Base):
+    __tablename__ = "summaries"
+
+    doc_id = Column(String, primary_key=True, index=True)
+    summary = Column(String)
