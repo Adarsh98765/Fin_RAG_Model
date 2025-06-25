@@ -1,14 +1,18 @@
 import os
 from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
-from utils.prompt_template import get_prompt
-from db.crud import get_summary
+from dotenv import load_dotenv
+load_dotenv()
+from Model_3.utils.prompt_template import get_prompt
+from Model_3.db.crud import get_summary
+
 
 # Load LLM
 llm = ChatOpenAI(
     model="llama3-70b-8192",
     base_url="https://api.groq.com/openai/v1",
-    api_key=os.getenv("GROQ_API_KEY")
+    api_key=os.getenv("OPENAI_API_KEY") or os.getenv("GROQ_API_KEY")
+
 )
 
 def answer_query(doc_id: str, user_query: str) -> str:

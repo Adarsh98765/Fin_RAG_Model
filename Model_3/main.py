@@ -1,10 +1,11 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from pydantic import BaseModel
 import tempfile, requests
-from graph.plot_generator import generate_comparison_chart
-from db.crud import get_summaries
-from rag.qa_chain import answer_query
 import plotly.io as pio
+
+from Model_3.graph.plot_generator import generate_comparison_chart
+from Model_3.db.crud import get_summaries
+from Model_3.rag.qa_chain import answer_query
 
 app = FastAPI()
 
@@ -15,6 +16,9 @@ MODEL_2_URL = "http://localhost:8002/analyze_pdf/"
 def root():
     return {"message": "Model 3 API is running."}
 
+# ----------------------
+# 🔍 Compare API
+# ----------------------
 @app.post("/compare")
 async def compare_pdfs(pdf_1: UploadFile = File(...), pdf_2: UploadFile = File(...)):
     try:
@@ -48,7 +52,31 @@ async def compare_pdfs(pdf_1: UploadFile = File(...), pdf_2: UploadFile = File(.
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Helper functions
+# ----------------------
+# 🤖 QnA API
+# ----------------------
+@app.post("/ask")
+async def ask_question(pdf: UploadFile = File(...), question: str = Form(...)):
+    try:
+        # Step 1: Save PDF temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+            tmp.write(await pdf.read())
+            tmp_path = tmp.name
+
+        # Step 2: Upload to Model_1
+        doc_id = upload_to_model_1(tmp_path)
+
+        # Step 3: Trigger Model_2 summarization
+        analyze_with_model_2(doc_id)
+
+        # Step 4: Run QA using Model_3 logic
+        answer = answer_query(doc_id, question)
+
+        return {"status": "success", "answer": answer}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 def upload_to_model_1(file_path: str) -> str:
     with open(file_path, "rb") as f:
         response = requests.post(MODEL_1_URL, files={"file": f})
@@ -60,12 +88,3 @@ def analyze_with_model_2(doc_id: str):
     response = requests.post(MODEL_2_URL, json={"document_id": doc_id})
     if response.status_code != 200:
         raise Exception(f"Model_2 analysis failed for doc_id: {doc_id}")
-
-class AskRequest(BaseModel):
-    doc_id: str
-    query: str
-
-@app.post("/ask")
-def ask_question(request: AskRequest):
-    answer = answer_query(request.doc_id, request.query)
-    return {"answer": answer}
