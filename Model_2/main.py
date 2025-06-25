@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.exc import SQLAlchemyError
 from Model_2.analyzer import analyze_document
 from Model_1.db.models import SummaryRecord
 from Model_1.db.crud import SessionLocal
-from sqlalchemy.exc import SQLAlchemyError
 
 app = FastAPI()
 
@@ -12,21 +12,31 @@ class AnalyzeRequest(BaseModel):
 
 @app.post("/analyze_pdf/")
 def analyze_pdf(request: AnalyzeRequest):
+    db = SessionLocal()
     try:
-        # Step 1: Run the CoT analysis
         summary = analyze_document(request.document_id)
 
-        # Step 2: Save the summary to DB
-        db = SessionLocal()
+        if not summary or len(summary.strip()) == 0:
+            raise HTTPException(status_code=400, detail="Generated summary is empty")
+
         record = SummaryRecord(doc_id=request.document_id, summary=summary)
-        db.merge(record)  # Inserts new or updates existing
+        db.merge(record)
         db.commit()
-        db.close()
 
         return {"status": "success", "summary": summary}
 
     except SQLAlchemyError as db_err:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(db_err)}")
-    
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Database error occurred.")
+
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=f"Bad input: {str(ve)}")
+
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Unexpected server error.")
+
+    finally:
+        db.close()

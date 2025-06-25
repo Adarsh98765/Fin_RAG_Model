@@ -14,3 +14,4 @@ pandas
 sqlalchemy
 python-dotenv
 python-multipart
+plotly
