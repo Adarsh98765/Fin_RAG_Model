@@ -17,14 +17,14 @@ def root():
     return {"message": "Model 3 API is running."}
 
 
-@app.post("/default_graphs/")
-def generate_default_graphs(doc_id: str):
-    graph_data = get_graph_data(doc_id)
-    if not graph_data:
-        raise HTTPException(status_code=404, detail="No graph data found for this document.")
+# @app.post("/default_graphs/")
+# def generate_default_graphs(doc_id: str): 
+#     graph_data = get_graph_data(doc_id)
+#     if not graph_data:
+#         raise HTTPException(status_code=404, detail="No graph data found for this document.")
 
-    fig = generate_graphs_from_text(graph_data)  # you'll define this in plot_generator
-    return {"chart": fig.to_json()}
+#     fig = generate_graphs_from_text(graph_data)  
+#     return {"chart": fig.to_json()}
 
 # ----------------------
 # 🤖 QnA API
