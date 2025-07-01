@@ -1,48 +1,70 @@
 import re
 import plotly.graph_objects as go
+from collections import defaultdict
 
-def parse_summary(summary_text: str) -> dict:
+def parse_graph_text(text: str) -> dict:
     """
-    Extracts metrics from the plain text summary and returns a dict:
-    { "Metric Name": "Value (str)", ... }
+    Parses structured graph data and returns a dict of:
+    {
+        "Metric Name": {
+            "Period 1": value1,
+            "Period 2": value2,
+            ...
+        },
+        ...
+    }
     """
-    pattern = r"Metric:\s*(.*?)\s*Period:.*?Value:\s*(.*?)\s*Notes:"
-    matches = re.findall(pattern, summary_text, re.DOTALL)
+    metric_blocks = text.strip().split("Metric:")
+    data = defaultdict(dict)
 
-    metrics = {}
-    for name, value in matches:
-        cleaned_value = value.replace("₹", "").replace(",", "").strip()
-        metrics[name.strip()] = cleaned_value
-    return metrics
+    for block in metric_blocks:
+        lines = block.strip().splitlines()
+        if len(lines) < 2:
+            continue
 
-def generate_comparison_chart(summary1: str, summary2: str, label1: str = "Company A", label2: str = "Company B"):
-    """
-    Takes two plain-text summaries and generates a side-by-side bar chart for all common metrics.
-    """
-    data1 = parse_summary(summary1)
-    data2 = parse_summary(summary2)
+        name = lines[0].strip()
+        period_line = next((l for l in lines if l.lower().startswith("period:")), None)
+        value_line = next((l for l in lines if l.lower().startswith("value:")), None)
 
-    common_metrics = set(data1.keys()) & set(data2.keys())
-    common_metrics = sorted(list(common_metrics))  # consistent order
+        if name and period_line and value_line:
+            period = period_line.split(":", 1)[1].strip()
+            value_str = value_line.split(":", 1)[1].strip()
+            value = extract_numeric_value(value_str)
+            if value is not None:
+                data[name][period] = value
 
-    values1 = [try_convert_to_float(data1[m]) for m in common_metrics]
-    values2 = [try_convert_to_float(data2[m]) for m in common_metrics]
+    return data
 
-    fig = go.Figure()
-    fig.add_trace(go.Bar(x=common_metrics, y=values1, name=label1))
-    fig.add_trace(go.Bar(x=common_metrics, y=values2, name=label2))
-
-    fig.update_layout(
-        title="Financial Comparison",
-        xaxis_title="Metric",
-        yaxis_title="Value",
-        barmode='group'
-    )
-
-    return fig
-
-def try_convert_to_float(value: str):
+def extract_numeric_value(s: str):
+    """Extract numeric value from a string like ₹20.5 Cr or 11.2%"""
     try:
-        return float(re.findall(r"[-+]?\d*\.\d+|\d+", value)[0])
+        num = re.findall(r"[-+]?\d*\.\d+|\d+", s)
+        return float(num[0]) if num else None
     except:
-        return None  # Could not convert
+        return None
+
+def generate_graphs_from_text(graph_text: str):
+    """
+    Main function: parses the graph data and creates one Plotly figure with subplots.
+    """
+    parsed_data = parse_graph_text(graph_text)
+
+    # Create subplots – one bar/line chart per metric
+    figures = []
+
+    for metric, values in parsed_data.items():
+        periods = sorted(values.keys())
+        y_values = [values[p] for p in periods]
+
+        fig = go.Figure()
+        fig.add_trace(go.Bar(x=periods, y=y_values, name=metric))
+        fig.update_layout(
+            title=metric,
+            xaxis_title="Period",
+            yaxis_title="Value",
+            height=400
+        )
+        figures.append(fig)
+
+    # Combine all figures into a single dashboard using JSON (frontend will render them one by one)
+    return figures[0] if figures else go.Figure()  # Return the first if only one chart is supported now

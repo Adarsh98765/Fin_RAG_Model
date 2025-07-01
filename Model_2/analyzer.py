@@ -16,65 +16,100 @@ def load_chunks_for_doc(doc_id: str) -> List[str]:
     vectordb = Chroma(persist_directory=CHROMA_PERSIST_DIR, embedding_function=embedding_model)
     all_docs = vectordb.similarity_search(query="financial analysis", k=100, filter={"doc_id": doc_id})
 
-    # Keyword-based filtering (optional enhancement)
-    keywords = ["revenue", "profit", "loss", "assets", "liabilities", "EPS", "cash", "debt", "equity", "expense"]
-    filtered_chunks = [doc.page_content for doc in all_docs if any(kw.lower() in doc.page_content.lower() for kw in keywords)]
+    # # Keyword-based filtering (optional enhancement)
+    # keywords = ["revenue", "profit", "loss", "assets", "liabilities", "EPS", "cash", "debt", "equity", "expense"]
+    # filtered_chunks = [doc.page_content for doc in all_docs if any(kw.lower() in doc.page_content.lower() for kw in keywords)]
 
-    return filtered_chunks or [doc.page_content for doc in all_docs]  # fallback to all if filter is empty
+    return [doc.page_content for doc in all_docs]  # fallback to all if filter is empty
 
-# CoT Prompt Template
-COT_TEMPLATE = """
+SUMMARY_TEMPLATE = """
 You are a senior financial analyst AI assistant.
 
-Your task is to read raw extracted financial data and convert it into a highly compressed, investment-focused set of insights.
+Your job is to generate a highly compressed investment-oriented financial summary using raw extracted data from a company's report.
 
-Think step-by-step like a professional analyst. Follow these instructions strictly:
+📌 Follow these strict steps:
 
----
-
-Step 1: Carefully extract **only the most essential financial metrics** for performance and valuation. Prioritize:
+Step 1️⃣: Extract **essential core metrics**:
 - Revenue from operations
+- EBITDA
 - Net profit / PAT
-- EPS (basic and diluted)
-- EBITDA and EBIT margins
-- ROE and ROCE
-- Total debt and debt/equity ratio
+- EPS (basic or diluted)
+- ROE, ROCE
+- Total debt, debt/equity ratio
 - Cash flow from operations
-- Current ratio / liquidity ratios
-- P/E ratio or valuation-relevant metrics
+- Current ratio
+- Valuation metrics (P/E, EV/EBITDA if available)
 
-Step 2: Identify **YoY or QoQ trends** for the above metrics. Avoid copying entire tables. Pick key periods only (e.g., FY22 vs FY23).
+Step 2️⃣: Include only key YoY or QoQ comparisons (e.g., FY23 vs FY22).
 
-Step 3: Discard non-essential or repetitive text. Avoid MD&A, segment-level noise, or CEO statements. Compress wherever possible.
+Step 3️⃣: Compress aggressively. Ignore management commentary, MD&A, and unnecessary details.
 
-Step 4: Structure the output in the following format (plain text, no markdown):
+Step 4️⃣: Use this format (plain text, no markdown):
 
-Metric: <Metric Name>  
+Metric: <Name>  
 Period: <e.g., FY23 or Q3 FY24>  
-Value: <e.g., ₹123 Cr, 15.2%, etc.>  
-Notes: <Optional insight if significant>
+Value: <e.g., ₹123 Cr or 15.2%>  
+Notes: <Optional insight if meaningful>
 
----
-
-Your final output should be concise, stripped of all filler, and ready for downstream visualization or chatbot-based analysis.
-
-Here is the raw extracted financial data:
+Here is the financial text:
 
 {content}
 
-Begin your step-by-step extraction now:
-
-DO NOT repeat the instructions. Begin directly with extracted metrics.
-
+DO NOT repeat instructions. Start directly with extracted metrics.
 """
 
-# Function to run CoT-style analysis
-def analyze_document(doc_id: str) -> str:
+
+## GRAPH TEMPLATE FOR CREATING GRAPHS
+
+GRAPH_TEMPLATE = """
+You are a financial analyst AI.
+
+Your task is to extract **only reliable, numeric values** from raw financial report data to generate the following 7 critical investment graphs:
+
+1️⃣ Revenue Trend → Net Sales or Operating Revenue  
+2️⃣ EBITDA & EBITDA Margin → Both values  
+3️⃣ Net Profit Trend → PAT  
+4️⃣ EPS Trend → Earnings Per Share  
+5️⃣ Operating Expense Split → Raw Material, Employee, Other Expenses  
+6️⃣ Cash Balance Trend → Cash & Cash Equivalents  
+7️⃣ Debt Profile → Finance Costs, Debt/Equity Ratio
+
+📌 Very Important:
+- ❌ Do NOT include any metric if the value is missing or cannot be confidently extracted.
+- ❌ Do NOT return "Not available" or "Not possible to extract".
+- ✅ Only include metrics where a number is clearly present (e.g., ₹123 Cr, 15.2%, ₹20.61).
+
+🧠 Format for each metric:
+Metric: <Name>  
+Period: <e.g., FY22, Q3 FY24>  
+Value: <e.g., ₹300 Cr or 12%>  
+Notes: <Optional insight, derived remark, or comparison>
+
+Here is the financial content:
+
+{content}
+
+Start now. Do not repeat instructions.
+"""
+
+
+
+def analyze_document_summary(doc_id: str) -> str:
     chunks = load_chunks_for_doc(doc_id)
-    limited_content = "\n\n".join(chunks[:100])  # token-safe (basic truncation)
+    content = "\n\n".join(chunks[:100])
 
-    prompt = PromptTemplate.from_template(COT_TEMPLATE)
+    prompt = PromptTemplate.from_template(SUMMARY_TEMPLATE)
     llm = ChatOpenAI(model="llama3-70b-8192", base_url="https://api.groq.com/openai/v1", api_key=os.getenv("GROQ_API_KEY"))
-
     chain = prompt | llm | StrOutputParser()
-    return chain.invoke({"content": limited_content})
+
+    return chain.invoke({"content": content})
+
+def analyze_graph_metrics(doc_id: str) -> str:
+    chunks = load_chunks_for_doc(doc_id)
+    content = "\n\n".join(chunks[:100])
+
+    prompt = PromptTemplate.from_template(GRAPH_TEMPLATE)
+    llm = ChatOpenAI(model="llama3-70b-8192", base_url="https://api.groq.com/openai/v1", api_key=os.getenv("GROQ_API_KEY"))
+    chain = prompt | llm | StrOutputParser()
+
+    return chain.invoke({"content": content})

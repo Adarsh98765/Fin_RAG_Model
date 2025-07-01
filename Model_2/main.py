@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
-from Model_2.analyzer import analyze_document
-from Model_1.db.models import SummaryRecord
+from Model_2.analyzer import analyze_document_summary, analyze_graph_metrics
+from Model_1.db.models import SummaryRecord, GraphData
 from Model_1.db.crud import SessionLocal
 
 app = FastAPI()
@@ -14,18 +14,28 @@ class AnalyzeRequest(BaseModel):
 def analyze_pdf(request: AnalyzeRequest):
     db = SessionLocal()
     try:
-        summary = analyze_document(request.document_id)
-
+        # Step 1: Analyze financial summary
+        summary = analyze_document_summary(request.document_id)
         if not summary or len(summary.strip()) == 0:
             raise HTTPException(status_code=400, detail="Generated summary is empty")
 
-        record = SummaryRecord(doc_id=request.document_id, summary=summary)
-        db.merge(record)
+        # Step 2: Analyze graph-friendly data
+        graph_data = analyze_graph_metrics(request.document_id)
+        if not graph_data or len(graph_data.strip()) == 0:
+            raise HTTPException(status_code=400, detail="Generated graph data is empty")
+
+        # Save both into DB
+        db.merge(SummaryRecord(doc_id=request.document_id, summary=summary))
+        db.merge(GraphData(doc_id=request.document_id, graph_text=graph_data))
         db.commit()
 
-        return {"status": "success", "summary": summary}
+        return {
+            "status": "success",
+            "summary": summary,
+            "graph_data": graph_data
+        }
 
-    except SQLAlchemyError as db_err:
+    except SQLAlchemyError:
         db.rollback()
         raise HTTPException(status_code=500, detail="Database error occurred.")
 
@@ -36,7 +46,7 @@ def analyze_pdf(request: AnalyzeRequest):
         raise HTTPException(status_code=404, detail="Document not found.")
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Unexpected server error.")
+        raise HTTPException(status_code=500, detail=f"Unexpected server error: {str(e)}")
 
     finally:
         db.close()

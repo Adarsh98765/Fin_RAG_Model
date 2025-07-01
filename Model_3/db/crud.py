@@ -2,6 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from Model_1.db.models import SummaryRecord
 from Model_1.db.models import Base  # in case you want to auto-create schema
+from Model_1.db.models import GraphData
 
 # Update this if you're using a different DB
 DATABASE_URL = "sqlite:///files.db"
@@ -29,3 +30,8 @@ def get_summaries(doc_id_1: str, doc_id_2: str) -> tuple[str, str]:
                 record2.summary if record2 else None)
     finally:
         db.close()
+def get_graph_data(doc_id: str) -> str:
+    db = SessionLocal()
+    record = db.query(GraphData).filter(GraphData.doc_id == doc_id).first()
+    db.close()
+    return record.graph_text if record else None

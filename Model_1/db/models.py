@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String
+from sqlalchemy import Column, String , Text
 from sqlalchemy.ext.declarative import declarative_base
 
 # Base class for SQLAlchemy models
@@ -20,3 +20,9 @@ class SummaryRecord(Base):
 
     doc_id = Column(String, primary_key=True, index=True)
     summary = Column(String)
+
+class GraphData(Base):
+    __tablename__ = "graphs"
+
+    doc_id = Column(String, primary_key=True, index=True)
+    graph_text = Column(Text)  # stores raw extracted graph-friendly metrics

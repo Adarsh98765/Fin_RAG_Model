@@ -3,7 +3,7 @@ from pydantic import BaseModel
 import tempfile, requests
 import plotly.io as pio
 
-from Model_3.graph.plot_generator import generate_comparison_chart
+#from Model_3.graph.plot_generator import generate_comparison_chart
 from Model_3.db.crud import get_summaries
 from Model_3.rag.qa_chain import answer_query
 
@@ -16,41 +16,15 @@ MODEL_2_URL = "http://localhost:8002/analyze_pdf/"
 def root():
     return {"message": "Model 3 API is running."}
 
-# ----------------------
-# 🔍 Compare API
-# ----------------------
-@app.post("/compare")
-async def compare_pdfs(pdf_1: UploadFile = File(...), pdf_2: UploadFile = File(...)):
-    try:
-        # Step 1: Save PDFs temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp1:
-            tmp1.write(await pdf_1.read())
-            tmp1_path = tmp1.name
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp2:
-            tmp2.write(await pdf_2.read())
-            tmp2_path = tmp2.name
+@app.post("/default_graphs/")
+def generate_default_graphs(doc_id: str):
+    graph_data = get_graph_data(doc_id)
+    if not graph_data:
+        raise HTTPException(status_code=404, detail="No graph data found for this document.")
 
-        # Step 2: Upload both to Model_1
-        doc_id_1 = upload_to_model_1(tmp1_path)
-        doc_id_2 = upload_to_model_1(tmp2_path)
-
-        # Step 3: Trigger Model_2 summarization
-        analyze_with_model_2(doc_id_1)
-        analyze_with_model_2(doc_id_2)
-
-        # Step 4: Load both summaries
-        summary1, summary2 = get_summaries(doc_id_1, doc_id_2)
-        if not summary1 or not summary2:
-            raise HTTPException(status_code=404, detail="Summary not found for one or both PDFs")
-
-        # Step 5: Generate Plotly comparison chart
-        fig = generate_comparison_chart(summary1, summary2, label1=pdf_1.filename, label2=pdf_2.filename)
-
-        return {"status": "success", "chart": pio.to_json(fig)}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    fig = generate_graphs_from_text(graph_data)  # you'll define this in plot_generator
+    return {"chart": fig.to_json()}
 
 # ----------------------
 # 🤖 QnA API
