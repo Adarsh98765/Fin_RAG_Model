@@ -1,10 +1,17 @@
 import streamlit as st
 import requests
+import uuid
 
 BACKEND_URL = "http://localhost:8003"
 
 st.set_page_config(page_title="FinRAG Dashboard", layout="wide")
 st.title("📊 Financial Report Analyzer")
+
+# Generate session_id if not present
+if "session_id" not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())
+
+session_id = st.session_state.session_id
 
 st.subheader("Upload Financial PDF and Ask")
 
@@ -15,7 +22,10 @@ if st.button("💬 Ask"):
     if pdf and question.strip():
         with st.spinner("Analyzing and generating answer..."):
             files = {"pdf": pdf}
-            data = {"question": question}
+            data = {
+                "question": question,
+                "session_id": session_id  # ✅ added here
+            }
             response = requests.post(
                 f"{BACKEND_URL}/ask",
                 files=files,
