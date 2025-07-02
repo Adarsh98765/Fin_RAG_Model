@@ -19,10 +19,12 @@ class SummaryRecord(Base):
     __tablename__ = "summaries"
 
     doc_id = Column(String, primary_key=True, index=True)
-    summary = Column(String)
+    summary = Column(Text)
 
 class GraphData(Base):
     __tablename__ = "graphs"
-
-    doc_id = Column(String, primary_key=True, index=True)
-    graph_text = Column(Text)  # stores raw extracted graph-friendly metrics
+    id = Column(String, primary_key=True)  # you can use a UUID or auto-generated ID
+    doc_id = Column(String, index=True)
+    metric_name = Column(String)
+    value = Column(String)
+    notes = Column(Text)

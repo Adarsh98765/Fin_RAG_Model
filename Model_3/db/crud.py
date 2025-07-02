@@ -1,16 +1,13 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from Model_1.db.models import SummaryRecord
-from Model_1.db.models import Base  # in case you want to auto-create schema
-from Model_1.db.models import GraphData
+from Model_1.db.models import SummaryRecord, GraphData, Base
 
-# Update this if you're using a different DB
+# Database URL
 DATABASE_URL = "sqlite:///files.db"
 
+# SQLAlchemy setup
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
-
-# Optional: Auto-create tables
 Base.metadata.create_all(bind=engine)
 
 def get_summary(doc_id: str) -> str:
@@ -30,8 +27,24 @@ def get_summaries(doc_id_1: str, doc_id_2: str) -> tuple[str, str]:
                 record2.summary if record2 else None)
     finally:
         db.close()
-def get_graph_data(doc_id: str) -> str:
+
+def get_graph_data(doc_id: str) -> list[dict]:
+    """
+    Returns a list of structured metrics:
+    [
+        { "metric_name": ..., "value": ..., "notes": ... },
+        ...
+    ]
+    """
     db = SessionLocal()
-    record = db.query(GraphData).filter(GraphData.doc_id == doc_id).first()
-    db.close()
-    return record.graph_text if record else None
+    try:
+        records = db.query(GraphData).filter(GraphData.doc_id == doc_id).all()
+        return [
+            {
+                "metric_name": r.metric_name,
+                "value": r.value,
+                "notes": r.notes
+            } for r in records
+        ]
+    finally:
+        db.close()

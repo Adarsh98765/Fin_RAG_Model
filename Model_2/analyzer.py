@@ -11,16 +11,20 @@ from config import CHROMA_PERSIST_DIR, EMBEDDING_MODEL_NAME
 # Load embedding model
 embedding_model = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
 
-# Load vector store chunks filtered by doc_id
+# Load chunks filtered by doc_id
 def load_chunks_for_doc(doc_id: str) -> List[str]:
-    vectordb = Chroma(persist_directory=CHROMA_PERSIST_DIR, embedding_function=embedding_model)
-    all_docs = vectordb.similarity_search(query="financial analysis", k=100, filter={"doc_id": doc_id})
+    vectordb = Chroma(
+        persist_directory=CHROMA_PERSIST_DIR,
+        embedding_function=embedding_model
+    )
+    docs = vectordb.similarity_search(
+        query="financial analysis",
+        k=100,
+        filter={"doc_id": doc_id}
+    )
+    return [doc.page_content for doc in docs]
 
-    # # Keyword-based filtering (optional enhancement)
-    # keywords = ["revenue", "profit", "loss", "assets", "liabilities", "EPS", "cash", "debt", "equity", "expense"]
-    # filtered_chunks = [doc.page_content for doc in all_docs if any(kw.lower() in doc.page_content.lower() for kw in keywords)]
-
-    return [doc.page_content for doc in all_docs]  # fallback to all if filter is empty
+# ------------------ TEMPLATES ------------------
 
 SUMMARY_TEMPLATE = """
 You are a senior financial analyst AI assistant.
@@ -58,9 +62,6 @@ Here is the financial text:
 DO NOT repeat instructions. Start directly with extracted metrics.
 """
 
-
-## GRAPH TEMPLATE FOR CREATING GRAPHS
-
 GRAPH_TEMPLATE = """
 You are a financial analyst AI.
 
@@ -92,24 +93,55 @@ Here is the financial content:
 Start now. Do not repeat instructions.
 """
 
-
+# ------------------ LLM CALLS ------------------
 
 def analyze_document_summary(doc_id: str) -> str:
     chunks = load_chunks_for_doc(doc_id)
     content = "\n\n".join(chunks[:100])
 
     prompt = PromptTemplate.from_template(SUMMARY_TEMPLATE)
-    llm = ChatOpenAI(model="llama3-70b-8192", base_url="https://api.groq.com/openai/v1", api_key=os.getenv("GROQ_API_KEY"))
+    llm = ChatOpenAI(
+        model="llama3-70b-8192",
+        base_url="https://api.groq.com/openai/v1",
+        api_key=os.getenv("GROQ_API_KEY")
+    )
     chain = prompt | llm | StrOutputParser()
 
     return chain.invoke({"content": content})
 
-def analyze_graph_metrics(doc_id: str) -> str:
+def analyze_graph_metrics(doc_id: str) -> list[dict]:
     chunks = load_chunks_for_doc(doc_id)
     content = "\n\n".join(chunks[:100])
 
     prompt = PromptTemplate.from_template(GRAPH_TEMPLATE)
-    llm = ChatOpenAI(model="llama3-70b-8192", base_url="https://api.groq.com/openai/v1", api_key=os.getenv("GROQ_API_KEY"))
+    llm = ChatOpenAI(
+        model="llama3-70b-8192",
+        base_url="https://api.groq.com/openai/v1",
+        api_key=os.getenv("GROQ_API_KEY")
+    )
     chain = prompt | llm | StrOutputParser()
 
-    return chain.invoke({"content": content})
+    result = chain.invoke({"content": content})
+
+    # Parse the plain text into structured list of dicts
+    parsed = []
+    for block in result.strip().split("\n\n"):
+        metric, period, value, notes = None, None, None, None
+        for line in block.splitlines():
+            if line.lower().startswith("metric:"):
+                metric = line.split(":", 1)[1].strip()
+            elif line.lower().startswith("period:"):
+                period = line.split(":", 1)[1].strip()
+            elif line.lower().startswith("value:"):
+                value = line.split(":", 1)[1].strip()
+            elif line.lower().startswith("notes:"):
+                notes = line.split(":", 1)[1].strip()
+
+        if metric and value:
+            parsed.append({
+                "metric_name": f"{metric} ({period})" if period else metric,
+                "value": value,
+                "notes": notes or ""
+            })
+
+    return parsed
