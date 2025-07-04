@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title> PDF Financial Analyzer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+  <!-- Navbar -->
+  <nav class="bg-white shadow p-4">
+    <div class="container mx-auto flex justify-between items-center">
+      <a href="/home" class="text-2xl font-bold text-indigo-600">&#x1F4C4; FinSight AI</a>
+      <div class="flex items-center space-x-4">
+        <span class="text-md">👋 Welcome <strong th:text="${name}">User</strong></span>
+        <form th:action="@{/logout}" method="post">
+          <button type="submit" class="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 text-sm">Logout</button>
+        </form>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="bg-indigo-600 text-white text-center py-10">
+    <h1 class="text-3xl font-bold mb-3">AI-Powered Financial Report Analyzer 📊</h1>
+    <p class="text-lg mb-5">Effortlessly extract insights from financial reports! Upload your PDF, ask questions, and get instant AI-powered summaries and analytics.</p>
+    <div class="space-x-3">
+      <span class="bg-indigo-500 px-3 py-1 rounded-full">📄 Table Extraction</span>
+      <span class="bg-indigo-500 px-3 py-1 rounded-full">🧠 AI Summary</span>
+      <span class="bg-indigo-500 px-3 py-1 rounded-full">💬 Chat Insights</span>
+    </div>
+  </section>
+
+  <!-- Upload & Ask Form -->
+  <div class="max-w-3xl mx-auto mt-10 bg-white rounded-xl shadow p-6">
+    <h2 class="text-xl font-semibold mb-4">Upload a PDF & Ask Your Question</h2>
+    <form th:action="@{/ask}" method="post" enctype="multipart/form-data" class="space-y-4">
+      <div>
+        <label class="block font-medium">Upload PDF</label>
+        <input type="file" name="file" accept=".pdf" required class="w-full p-2 border rounded" />
+      </div>
+      <div>
+        <label class="block font-medium">Your Question</label>
+        <input type="text" name="question" placeholder="e.g., What was the revenue in 2023?" required class="w-full p-2 border rounded" />
+      </div>
+      <div class="text-right">
+        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded">Analyze</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Summary -->
+  <div class="max-w-3xl mx-auto mt-6 bg-white rounded-xl shadow p-4" th:if="${summary}">
+    <h3 class="text-lg font-semibold mb-2">📄 Summary</h3>
+    <p th:text="${summary}"></p>
+  </div>
+
+  <!-- Q&A Chat -->
+  <div class="max-w-3xl mx-auto mt-4 bg-white rounded-xl shadow p-4" th:if="${query}">
+    <div class="mb-2">
+      <strong>You:</strong>
+      <p th:text="${query}" class="bg-indigo-100 p-2 rounded"></p>
+    </div>
+    <div>
+      <strong>FinSight AI:</strong>
+      <p th:text="${answer}" class="bg-green-100 p-2 rounded"></p>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="mt-12 bg-gray-200 py-6">
+    <div class="max-w-4xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-gray-700 text-sm">
+      <div>
+        <h4 class="font-bold mb-2">About</h4>
+        <p>FinSight-AI uses AI/LLM models to decode financial reports from PDFs, offering meaningful summaries and query responses in seconds.</p>
+      </div>
+      <div>
+        <h4 class="font-bold mb-2">Features</h4>
+        <ul class="space-y-1">
+          <li>📥 PDF Upload & Parsing</li>
+          <li>🧠 AI Chain-of-Thought Summarization</li>
+          <li>💬 Chat-style Q&A Interface</li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-bold mb-2">Contact</h4>
+        <p>Email: support@adarshfarko.com</p>
+        <p>Phone: +91 98765 4320</p>
+      </div>
+    </div>
+    <div class="text-center mt-4 text-xs text-gray-500">&copy; 2025 FinSight-AI. All rights reserved.</div>
+  </footer>
+
+</body>
+</html>

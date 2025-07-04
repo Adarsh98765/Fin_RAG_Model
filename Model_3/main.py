@@ -9,6 +9,9 @@ app = FastAPI()
 MODEL_1_URL = "http://localhost:8001/upload_pdf/"
 MODEL_2_URL = "http://localhost:8002/analyze_pdf/"
 
+# In-memory chat memory store
+session_memory = {}
+
 @app.get("/")
 def root():
     return {"message": "Model 3 API is running."}
@@ -16,7 +19,8 @@ def root():
 @app.post("/ask")
 async def ask_question(
     pdf: UploadFile = File(...),
-    question: str = Form(...)
+    question: str = Form(...),
+    session_id: str = Form(...)
 ):
     try:
         # Step 1: Save PDF temporarily
@@ -30,8 +34,15 @@ async def ask_question(
         # Step 3: Trigger Model_2 summarization
         analyze_with_model_2(doc_id)
 
-        # Step 4: Run QA using Model_3 logic
-        answer = answer_query(doc_id, question)
+        # Step 4: Get chat history for this session
+        chat_history = session_memory.get(session_id, [])
+
+        # Step 5: Run QA using Model_3 logic with memory
+        answer = answer_query(doc_id, question, chat_history)
+
+        # Step 6: Store new interaction
+        chat_history.append({"user": question, "bot": answer})
+        session_memory[session_id] = chat_history
 
         return {
             "status": "success",
